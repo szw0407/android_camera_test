@@ -44,7 +44,6 @@ import androidx.lifecycle.LifecycleOwner
 
 class MainActivity : ComponentActivity() {
     private lateinit var cameraExecutor: ExecutorService
-    @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         cameraExecutor = Executors.newSingleThreadExecutor()
@@ -60,7 +59,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@RequiresApi(Build.VERSION_CODES.LOLLIPOP)
 @Composable
 fun CameraTestScreen(cameraExecutor: ExecutorService) {
     val context = LocalContext.current as Activity
@@ -165,7 +163,6 @@ fun CameraTestScreen(cameraExecutor: ExecutorService) {
     }
 }
 
-@RequiresApi(Build.VERSION_CODES.LOLLIPOP)
 @Composable
 fun CameraXPreview(
     onImageCaptured: (Bitmap) -> Unit,
@@ -200,7 +197,6 @@ fun CameraXPreview(
     }, modifier = Modifier.size(320.dp))
 }
 
-@RequiresApi(Build.VERSION_CODES.LOLLIPOP)
 fun takePhoto(
     context: Context,
     imageCapture: ImageCapture,
@@ -216,6 +212,7 @@ fun takePhoto(
             override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
                 val bmp = BitmapFactory.decodeFile(photoFile.absolutePath)
                 onImageCaptured(bmp)
+                Toast.makeText(context, "图片已保存", Toast.LENGTH_SHORT).show()
             }
             override fun onError(exception: ImageCaptureException) {
                 exception.printStackTrace()
@@ -226,41 +223,33 @@ fun takePhoto(
 
 fun saveImageToGallery(context: Context, bitmap: Bitmap) {
     val filename = "IMG_${System.currentTimeMillis()}.jpg"
-    val fos = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+    try {
         val contentValues = android.content.ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
             put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
             put(MediaStore.MediaColumns.RELATIVE_PATH, "DCIM/CameraTest")
         }
         val imageUri: Uri? = context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
-        imageUri?.let { context.contentResolver.openOutputStream(it) }
-    } else {
-        val imagesDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DCIM).toString() + "/CameraTest"
-        val file = File(imagesDir)
-        if (!file.exists()) file.mkdirs()
-        FileOutputStream(File(file, filename))
-    }
-    fos?.use {
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, it)
+        imageUri?.let { uri ->
+            context.contentResolver.openOutputStream(uri)?.use {
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, it)
+            }
+        }
+    } catch (e: Exception) {
+        Toast.makeText(context, "当前安卓版本不支持现代图片保存方式", Toast.LENGTH_SHORT).show()
     }
 }
 
 fun saveImageAospApi(context: Context, bitmap: Bitmap) {
-if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-    val filename = "AOSP_IMG_${System.currentTimeMillis()}.jpg"
-    val contentValues = android.content.ContentValues().apply {
-        put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
-        put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+try {
+    val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+        addCategory(Intent.CATEGORY_OPENABLE)
+        type = "image/jpeg"
+        putExtra(Intent.EXTRA_TITLE, "AOSP_IMG_${System.currentTimeMillis()}.jpg")
     }
-    val resolver = context.contentResolver
-    val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
-    uri?.let {
-        resolver.openOutputStream(it)?.use { out ->
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
-        }
-        Toast.makeText(context, "图片已保存到对应目录", Toast.LENGTH_SHORT).show()
-    }
-} else {
-    Toast.makeText(context, "当前安卓版本不支持AOSP原生保存", Toast.LENGTH_SHORT).show()
+    val activity = context as? Activity
+    activity?.startActivityForResult(intent, 1001)
+} catch (e: Exception) {
+    Toast.makeText(context, "当前安卓版本不支持AOSP原生保存方式", Toast.LENGTH_SHORT).show();
 }
 }
