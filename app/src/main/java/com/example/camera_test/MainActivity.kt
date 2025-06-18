@@ -10,9 +10,11 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.contract.ActivityResultContracts.RequestPermission
+import androidx.annotation.RequiresApi
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -34,9 +36,15 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.io.File
 import java.io.FileOutputStream
+import android.content.Context
+import android.graphics.BitmapFactory
+import android.widget.Toast
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.LifecycleOwner
 
 class MainActivity : ComponentActivity() {
     private lateinit var cameraExecutor: ExecutorService
+    @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         cameraExecutor = Executors.newSingleThreadExecutor()
@@ -52,6 +60,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.LOLLIPOP)
 @Composable
 fun CameraTestScreen(cameraExecutor: ExecutorService) {
     val context = LocalContext.current as Activity
@@ -63,6 +72,16 @@ fun CameraTestScreen(cameraExecutor: ExecutorService) {
     val requestCameraPermissionLauncher = rememberLauncherForActivityResult(RequestPermission()) { isGranted ->
         if (isGranted) {
             showCameraX = true
+        }
+    }
+    val aospLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            @Suppress("DEPRECATION")
+            val bitmap = result.data?.extras?.get("data") as? Bitmap
+            if (bitmap != null) {
+                imageBitmap = bitmap
+                showSaveButton = true
+            }
         }
     }
     Column(
@@ -86,18 +105,9 @@ fun CameraTestScreen(cameraExecutor: ExecutorService) {
         Button(onClick = {
             useAospApi = true
             val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-            val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-                if (result.resultCode == Activity.RESULT_OK) {
-                    val bitmap = result.data?.extras?.get("data") as? Bitmap
-                    if (bitmap != null) {
-                        imageBitmap = bitmap
-                        showSaveButton = true
-                    }
-                }
-            }
-            launcher.launch(intent)
+            aospLauncher.launch(intent)
         }, modifier = Modifier.fillMaxWidth()) {
-            Text("AOSP API无权限拍照")
+            Text("AOSP原生拍照")
         }
         Spacer(modifier = Modifier.height(16.dp))
         if (showCameraX) {
@@ -128,24 +138,23 @@ fun CameraTestScreen(cameraExecutor: ExecutorService) {
             Spacer(modifier = Modifier.height(16.dp))
         }
         if (showSaveButton) {
+            // 预先声明权限请求Launcher
+            val writePermissionLauncher = rememberLauncherForActivityResult(RequestPermission()) { isGranted ->
+                if (isGranted) {
+                    imageBitmap?.let { saveImageToGallery(context, it) }
+                }
+            }
             Button(onClick = {
                 if (useAospApi) {
-                    // 直接保存（AOSP API，无需权限）
                     imageBitmap?.let { saveImageAospApi(context, it) }
                 } else {
-                    // 传统保存策略：新系统请求MediaStore权限，老系统请求WRITE_EXTERNAL_STORAGE
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                         imageBitmap?.let { saveImageToGallery(context, it) }
                     } else {
                         if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
                             imageBitmap?.let { saveImageToGallery(context, it) }
                         } else {
-                            val launcher = rememberLauncherForActivityResult(RequestPermission()) { isGranted ->
-                                if (isGranted) {
-                                    imageBitmap?.let { saveImageToGallery(context, it) }
-                                }
-                            }
-                            launcher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                            writePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
                         }
                     }
                 }
@@ -156,6 +165,7 @@ fun CameraTestScreen(cameraExecutor: ExecutorService) {
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.LOLLIPOP)
 @Composable
 fun CameraXPreview(
     onImageCaptured: (Bitmap) -> Unit,
@@ -190,26 +200,22 @@ fun CameraXPreview(
     }, modifier = Modifier.size(320.dp))
 }
 
+@RequiresApi(Build.VERSION_CODES.LOLLIPOP)
 fun takePhoto(
     context: Context,
     imageCapture: ImageCapture,
     cameraExecutor: ExecutorService,
     onImageCaptured: (Bitmap) -> Unit
 ) {
-    val outputOptions = ImageCapture.OutputFileOptions.Builder(
-        context.cacheDir,
-        "temp_${System.currentTimeMillis()}.jpg"
-    ).build()
+    val photoFile = File(context.cacheDir, "temp_${System.currentTimeMillis()}.jpg")
+    val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
     imageCapture.takePicture(
+        outputOptions,
         ContextCompat.getMainExecutor(context),
-        object : ImageCapture.OnImageCapturedCallback() {
-            override fun onCaptureSuccess(imageProxy: androidx.camera.core.ImageProxy) {
-                val buffer = imageProxy.planes[0].buffer
-                val bytes = ByteArray(buffer.remaining())
-                buffer.get(bytes)
-                val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+        object : ImageCapture.OnImageSavedCallback {
+            override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                val bmp = BitmapFactory.decodeFile(photoFile.absolutePath)
                 onImageCaptured(bmp)
-                imageProxy.close()
             }
             override fun onError(exception: ImageCaptureException) {
                 exception.printStackTrace()
@@ -240,11 +246,21 @@ fun saveImageToGallery(context: Context, bitmap: Bitmap) {
 }
 
 fun saveImageAospApi(context: Context, bitmap: Bitmap) {
-    // 直接用AOSP接口保存图片（如直接写入cache或app私有目录，无需权限）
+if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
     val filename = "AOSP_IMG_${System.currentTimeMillis()}.jpg"
-    val file = File(context.cacheDir, filename)
-    FileOutputStream(file).use { out ->
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
+    val contentValues = android.content.ContentValues().apply {
+        put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
+        put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
     }
-    Toast.makeText(context, "AOSP方式已保存到app缓存目录", Toast.LENGTH_SHORT).show()
+    val resolver = context.contentResolver
+    val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+    uri?.let {
+        resolver.openOutputStream(it)?.use { out ->
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
+        }
+        Toast.makeText(context, "图片已保存到对应目录", Toast.LENGTH_SHORT).show()
+    }
+} else {
+    Toast.makeText(context, "当前安卓版本不支持AOSP原生保存", Toast.LENGTH_SHORT).show()
+}
 }
