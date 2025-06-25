@@ -47,12 +47,30 @@ object CameraXManager {
      */
     fun getTorchState(): MutableState<Boolean> = torchState
     
+    // 相机初始化标志
+    private var shouldReinitCamera = mutableStateOf(false)
+    
+    /**
+     * 获取相机重新初始化标志
+     */
+    fun getShouldReinitCamera(): MutableState<Boolean> = shouldReinitCamera
+    
     /**
      * 切换前后摄像头
      */
     fun switchCamera() {
+        // 切换镜头方向状态
         lensFacing.value = if (lensFacing.value == CameraSelector.LENS_FACING_BACK) 
             CameraSelector.LENS_FACING_FRONT else CameraSelector.LENS_FACING_BACK
+        
+        // 当切换到前置摄像头时，确保关闭闪光灯（因为大多数前置相机没有闪光灯）
+        if (lensFacing.value == CameraSelector.LENS_FACING_FRONT) {
+            torchState.value = false
+            camera?.cameraControl?.enableTorch(false)
+        }
+        
+        // 触发相机重新初始化
+        shouldReinitCamera.value = !shouldReinitCamera.value
     }
     
     /**
@@ -86,14 +104,17 @@ object CameraXManager {
         return try {
             val cameraProvider = ProcessCameraProvider.getInstance(context).get()
             val hasCamera = cameraProvider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA)
+            // 这里不需要unbindAll，因为我们只是检查相机可用性，没有绑定任何用例
             hasCamera
         } catch (e: Exception) {
+            e.printStackTrace()
             false
         }
     }
     
     /**
      * 创建相机预览组件
+     * 每次lensFacing变化时，都会重新绑定相机，实现真正的前后摄像头切换
      */
     @Composable
     fun CameraPreview(
@@ -101,70 +122,69 @@ object CameraXManager {
         onImageCaptureCreated: (ImageCapture) -> Unit,
         lifecycleOwner: LifecycleOwner
     ) {
-        val currentLensFacing = remember { lensFacing }
-        val currentTorchState = remember { torchState }
-        
-        // 监听镜头方向变化
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val currentLensFacing = getLensFacing()
+        val currentTorchState = getTorchState()
+        // 用于保存ImageCapture实例
+        val imageCaptureState = remember { mutableStateOf<ImageCapture?>(null) }
+        // 用于保存PreviewView实例
+        val previewViewState = remember { mutableStateOf<PreviewView?>(null) }
+
+        // 绑定相机的函数
+        fun bindCamera() {
+            val previewView = previewViewState.value ?: return
+            val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+            cameraProviderFuture.addListener({
+                val cameraProvider = cameraProviderFuture.get()
+                val preview = Preview.Builder().build().also {
+                    it.setSurfaceProvider(previewView.surfaceProvider)
+                }
+                val imageCapture = ImageCapture.Builder()
+                    .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+                    .build()
+                imageCaptureState.value = imageCapture
+                onImageCaptureCreated(imageCapture)
+                val cameraSelector = CameraSelector.Builder()
+                    .requireLensFacing(currentLensFacing.value)
+                    .build()
+                try {
+                    cameraProvider.unbindAll()
+                    camera = cameraProvider.bindToLifecycle(
+                        lifecycleOwner,
+                        cameraSelector,
+                        preview,
+                        imageCapture
+                    )
+                    camera?.let {
+                        if (it.cameraInfo.hasFlashUnit()) {
+                            it.cameraControl.enableTorch(currentTorchState.value)
+                        }
+                    }
+                } catch (exc: Exception) {
+                    exc.printStackTrace()
+                }
+            }, ContextCompat.getMainExecutor(context))
+        }
+
+        // 只要镜头方向或闪光灯状态变化就重新绑定相机
         LaunchedEffect(currentLensFacing.value) {
-            // 当切换到前置摄像头时，确保闪光灯关闭
-            if (currentLensFacing.value == CameraSelector.LENS_FACING_FRONT) {
-                torchState.value = false
+            // 只有在PreviewView已创建时才绑定
+            if (previewViewState.value != null) {
+                bindCamera()
             }
         }
-        
+
         AndroidView(
             factory = { ctx ->
                 val previewView = PreviewView(ctx).apply {
                     implementationMode = PreviewView.ImplementationMode.COMPATIBLE
                 }
-                
-                val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
-                cameraProviderFuture.addListener({
-                    val cameraProvider = cameraProviderFuture.get()
-                    
-                    val preview = Preview.Builder()
-                        .build()
-                        .also {
-                            it.setSurfaceProvider(previewView.surfaceProvider)
-                        }
-                    
-                    val imageCapture = ImageCapture.Builder()
-                        .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-                        .build()
-                    
-                    onImageCaptureCreated(imageCapture)
-                    
-                    val cameraSelector = CameraSelector.Builder()
-                        .requireLensFacing(currentLensFacing.value)
-                        .build()
-                    
-                    try {
-                        cameraProvider.unbindAll()
-                        // 绑定相机实例并保存引用，以便控制闪光灯等功能
-                        camera = cameraProvider.bindToLifecycle(
-                            lifecycleOwner,
-                            cameraSelector,
-                            preview,
-                            imageCapture
-                        )
-                        
-                        // 设置初始闪光灯状态
-                        camera?.let {
-                            if (it.cameraInfo.hasFlashUnit()) {
-                                it.cameraControl.enableTorch(currentTorchState.value)
-                            }
-                        }
-                    } catch (exc: Exception) {
-                        exc.printStackTrace()
-                    }
-                }, ContextCompat.getMainExecutor(ctx))
-                
+                previewViewState.value = previewView
+                // 首次创建时立即绑定相机
+                bindCamera()
                 previewView
             },
-            modifier = modifier,
-            update = { previewView ->
-                // 更新相机预览（当镜头方向发生变化时）
-            }
+            modifier = modifier
         )
     }
 
