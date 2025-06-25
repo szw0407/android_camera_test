@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -125,7 +126,7 @@ fun ImagePreviewAndSave(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
+//            horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             SaveMethodButton(
                 text = "传统文件IO",
@@ -140,7 +141,7 @@ fun ImagePreviewAndSave(
             )
             
             SaveMethodButton(
-                text = "用户选择保存位置",
+                text = "SAF (Document API)",
                 selected = selectedSaveMethod == SaveMethod.DOCUMENT_API,
                 onClick = { onSaveMethodSelected(SaveMethod.DOCUMENT_API) }
             )
@@ -281,6 +282,45 @@ fun ImagePreviewAndSave(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * ImagePreviewAndSave预览
+ */
+@Preview(showBackground = true)
+@Composable
+fun ImagePreviewAndSavePreview() {
+    val previewBitmap = remember {
+        // 创建一个简单的预览用位图
+        val width = 400
+        val height = 300
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bitmap)
+        canvas.drawColor(android.graphics.Color.LTGRAY)
+        
+        // 绘制一些内容，以便让预览看起来更像实际的照片
+        val paint = android.graphics.Paint().apply {
+            color = android.graphics.Color.BLUE
+            style = android.graphics.Paint.Style.FILL
+        }
+        canvas.drawCircle(width / 2f, height / 2f, 50f, paint)
+        
+        bitmap
+    }
+    
+    com.example.camera_test.ui.theme.Camera_testTheme {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
+        ) {
+            ImagePreviewAndSave(
+                bitmap = previewBitmap,
+                onNewPhotoRequested = {},
+                selectedSaveMethod = SaveMethod.MEDIA_STORE,
+                onSaveMethodSelected = {}
+            )
         }
     }
 }

@@ -151,3 +151,22 @@ fun CameraMethodSelector(
         }
     }
 }
+
+/**
+ * CameraMethodSelector预览
+ */
+@Preview(showBackground = true)
+@Composable
+fun CameraMethodSelectorPreview() {
+    com.example.camera_test.ui.theme.Camera_testTheme {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
+        ) {
+            CameraMethodSelector(
+                onCameraXSelected = {},
+                onSystemCameraSelected = {}
+            )
+        }
+    }
+}
