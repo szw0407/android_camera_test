@@ -15,6 +15,9 @@ import com.example.camera_test.ui.CameraApp
 import com.example.camera_test.ui.theme.Camera_testTheme
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.core.content.ContextCompat
+import android.widget.Toast
 
 /**
  * 应用程序主活动
@@ -34,6 +37,9 @@ class MainActivity : ComponentActivity() {
         // 初始化相机执行器
         cameraExecutor = Executors.newSingleThreadExecutor()
         
+        // 初始化CameraX
+        initCameraX()
+        
         // 设置界面内容
         setContent {
             Camera_testTheme {
@@ -51,16 +57,30 @@ class MainActivity : ComponentActivity() {
         }
     }
     
+    /**
+     * 初始化CameraX
+     */
+    private fun initCameraX() {
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
+        cameraProviderFuture.addListener({
+            try {
+                // 获取CameraProvider实例
+                val cameraProvider = cameraProviderFuture.get()
+                // 确认CameraX已初始化
+                Log.d("MainActivity", "CameraX初始化成功")
+            } catch (e: Exception) {
+                Log.e("MainActivity", "CameraX初始化失败", e)
+                Toast.makeText(this, "无法初始化相机: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }, ContextCompat.getMainExecutor(this))
+    }
+    
     override fun onDestroy() {
         super.onDestroy()
         // 确保释放相机执行器资源
         cameraExecutor.shutdown()
     }
-    
-    // 处理Activity结果
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-    }
+
     
     companion object {
         // 用于文件命名的时间戳格式

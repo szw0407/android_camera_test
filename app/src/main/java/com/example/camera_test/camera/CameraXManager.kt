@@ -13,6 +13,7 @@ import androidx.camera.core.TorchState
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -67,13 +68,24 @@ object CameraXManager {
     }
     
     /**
+     * 直接控制闪光灯状态
+     */
+    fun enableTorch(enable: Boolean) {
+        camera?.let {
+            if (it.cameraInfo.hasFlashUnit()) {
+                torchState.value = enable
+                it.cameraControl.enableTorch(enable)
+            }
+        }
+    }
+    
+    /**
      * 检查设备是否有前置摄像头
      */
     fun hasFrontCamera(context: Context): Boolean {
         return try {
             val cameraProvider = ProcessCameraProvider.getInstance(context).get()
             val hasCamera = cameraProvider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA)
-            cameraProvider.unbindAll() // 释放相机提供程序
             hasCamera
         } catch (e: Exception) {
             false
@@ -91,6 +103,14 @@ object CameraXManager {
     ) {
         val currentLensFacing = remember { lensFacing }
         val currentTorchState = remember { torchState }
+        
+        // 监听镜头方向变化
+        LaunchedEffect(currentLensFacing.value) {
+            // 当切换到前置摄像头时，确保闪光灯关闭
+            if (currentLensFacing.value == CameraSelector.LENS_FACING_FRONT) {
+                torchState.value = false
+            }
+        }
         
         AndroidView(
             factory = { ctx ->
@@ -141,7 +161,10 @@ object CameraXManager {
                 
                 previewView
             },
-            modifier = modifier
+            modifier = modifier,
+            update = { previewView ->
+                // 更新相机预览（当镜头方向发生变化时）
+            }
         )
     }
 

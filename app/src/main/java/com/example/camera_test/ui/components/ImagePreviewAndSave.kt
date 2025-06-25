@@ -287,38 +287,38 @@ fun ImagePreviewAndSave(
 }
 
 /**
- * ImagePreviewAndSave预览
+ * 图片预览和保存组件预览版本
  */
 @Preview(showBackground = true)
 @Composable
 fun ImagePreviewAndSavePreview() {
-    val previewBitmap = remember {
-        // 创建一个简单的预览用位图
-        val width = 400
-        val height = 300
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        val canvas = android.graphics.Canvas(bitmap)
-        canvas.drawColor(android.graphics.Color.LTGRAY)
-        
-        // 绘制一些内容，以便让预览看起来更像实际的照片
-        val paint = android.graphics.Paint().apply {
-            color = android.graphics.Color.BLUE
-            style = android.graphics.Paint.Style.FILL
-        }
-        canvas.drawCircle(width / 2f, height / 2f, 50f, paint)
-        
-        bitmap
-    }
-    
     com.example.camera_test.ui.theme.Camera_testTheme {
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background
         ) {
+            // 创建一个简单的预览用位图
+            val previewBitmap = remember {
+                val width = 400
+                val height = 300
+                val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                val canvas = android.graphics.Canvas(bitmap)
+                canvas.drawColor(android.graphics.Color.LTGRAY)
+                
+                // 绘制一些内容，以便让预览看起来更像实际的照片
+                val paint = android.graphics.Paint().apply {
+                    color = android.graphics.Color.BLUE
+                    style = android.graphics.Paint.Style.FILL
+                }
+                canvas.drawCircle(width / 2f, height / 2f, 50f, paint)
+                
+                bitmap
+            }
+            
             ImagePreviewAndSave(
                 bitmap = previewBitmap,
                 onNewPhotoRequested = {},
-                selectedSaveMethod = SaveMethod.MEDIA_STORE,
+                selectedSaveMethod = null,
                 onSaveMethodSelected = {}
             )
         }

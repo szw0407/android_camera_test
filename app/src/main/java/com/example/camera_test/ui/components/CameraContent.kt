@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.camera.core.CameraSelector
@@ -40,7 +41,7 @@ import kotlinx.coroutines.withContext
 import java.util.concurrent.Executors
 
 /**
- * 相机控制按钮
+ * 相机控制按钮 - 更现代化的设计
  */
 @Composable
 fun CameraControlButton(
@@ -48,23 +49,49 @@ fun CameraControlButton(
     icon: ImageVector,
     contentDescription: String,
     tint: Color = Color.White,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isSelected: Boolean = false,
 ) {
     Box(
         modifier = modifier
-            .size(48.dp)
+            .size(56.dp)
             .clip(CircleShape)
-            .background(Color.Black.copy(alpha = 0.5f))
+            .background(Color(0x88000000).copy(alpha = if (isSelected) 0.8f else 0.5f))
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = tint,
-            modifier = Modifier.size(24.dp)
+            tint = if (isSelected) Color.Yellow else tint,
+            modifier = Modifier.size(28.dp)
         )
     }
+}
+
+/**
+ * 闪光灯控制按钮 - 支持三种状态（开、关、自动）
+ */
+@Composable
+fun FlashControlButton(
+    flashMode: Int,
+    onFlashModeChanged: (Int) -> Unit
+) {
+    val (icon, description) = when (flashMode) {
+        0 -> Pair(Icons.Default.FlashOff, "打开闪光灯")
+        1 -> Pair(Icons.Default.FlashOn, "关闭闪光灯")
+        else -> Pair(Icons.Default.FlashAuto, "自动闪光灯")
+    }
+    
+    CameraControlButton(
+        onClick = { 
+            // 循环三种状态：关闭 -> 开启 -> 自动 -> 关闭
+            onFlashModeChanged((flashMode + 1) % 3) 
+        },
+        icon = icon,
+        contentDescription = description,
+        isSelected = flashMode != 0
+    )
 }
 
 /**
@@ -86,6 +113,9 @@ fun CameraContent(
     val lensFacingState = remember { CameraXManager.getLensFacing() }
     val torchState = remember { CameraXManager.getTorchState() }
     
+    // 闪光灯模式：0=关闭，1=开启，2=自动
+    var flashMode by remember { mutableStateOf(0) }
+    
     // 检查设备是否有前置摄像头
     val hasFrontCamera = remember { mutableStateOf(false) }
     
@@ -95,38 +125,49 @@ fun CameraContent(
             hasFrontCamera.value = CameraXManager.hasFrontCamera(context)
         }
     }
+
+    // 监听闪光灯模式的变化并应用
+    LaunchedEffect(flashMode) {
+        if (flashMode == 1) {
+            CameraXManager.enableTorch(true)
+        } else {
+            CameraXManager.enableTorch(false)
+        }
+        // 注意：自动模式需要在拍照时特殊处理
+    }
     
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Box(modifier = Modifier.weight(1f)) {
-            // 相机预览
-            CameraXManager.CameraPreview(
-                modifier = Modifier.fillMaxSize(),
-                onImageCaptureCreated = { imageCapture = it },
-                lifecycleOwner = lifecycleOwner
-            )
-            
-            // 顶部控制栏
+    Box(modifier = Modifier.fillMaxSize()) {
+        // 相机预览
+        CameraXManager.CameraPreview(
+            modifier = Modifier.fillMaxSize(),
+            onImageCaptureCreated = { imageCapture = it },
+            lifecycleOwner = lifecycleOwner
+        )
+        
+        // 顶部控制栏 - 半透明背景
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .background(Color(0x44000000))
+                .padding(8.dp)
+        ) {
             Row(
                 modifier = Modifier
-                    .align(Alignment.TopCenter)
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // 闪光灯控制
+                // 闪光灯控制 - 仅在后置相机时显示
                 if (lensFacingState.value == CameraSelector.LENS_FACING_BACK) {
-                    CameraControlButton(
-                        onClick = { CameraXManager.toggleTorch() },
-                        icon = if (torchState.value) Icons.Default.FlashOn else Icons.Default.FlashOff,
-                        contentDescription = if (torchState.value) "关闭闪光灯" else "打开闪光灯"
+                    FlashControlButton(
+                        flashMode = flashMode,
+                        onFlashModeChanged = { flashMode = it }
                     )
                 } else {
-                    // 前置相机通常没有闪光灯，但为了保持UI一致，放一个占位符
-                    Box(modifier = Modifier.size(48.dp))
+                    // 占位符
+                    Box(modifier = Modifier.size(56.dp))
                 }
                 
                 // 关闭按钮
@@ -136,29 +177,36 @@ fun CameraContent(
                     contentDescription = "关闭相机"
                 )
             }
-            
-            // 右侧控制栏（前后摄像头切换）
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(16.dp)
-            ) {
-                // 仅当设备有前置摄像头时才显示切换按钮
-                if (hasFrontCamera.value) {
-                    CameraControlButton(
-                        onClick = { CameraXManager.switchCamera() },
-                        icon = Icons.Default.Cameraswitch,
-                        contentDescription = "切换相机"
-                    )
-                }
+        }
+        
+        // 右侧控制栏（前后摄像头切换）
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(16.dp)
+        ) {
+            // 仅当设备有前置摄像头时才显示切换按钮
+            if (hasFrontCamera.value) {
+                CameraControlButton(
+                    onClick = { 
+                        CameraXManager.switchCamera() 
+                        // 切换到前置相机时，强制关闭闪光灯
+                        if (lensFacingState.value == CameraSelector.LENS_FACING_FRONT) {
+                            flashMode = 0
+                        }
+                    },
+                    icon = Icons.Default.Cameraswitch,
+                    contentDescription = "切换相机"
+                )
             }
         }
         
-        // 底部控制栏包含拍摄按钮
+        // 底部控制栏包含拍摄按钮 - 半透明渐变背景
         Box(
             modifier = Modifier
+                .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .background(Color.Black.copy(alpha = 0.7f))
+                .background(Color(0x99000000))
                 .padding(vertical = 24.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -182,29 +230,23 @@ fun CameraContent(
                     }
                 },
                 modifier = Modifier
-                    .size(72.dp)
+                    .size(80.dp)
                     .border(4.dp, Color.White, CircleShape),
                 shape = CircleShape,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (isCapturing) Color.LightGray.copy(alpha = 0.5f)
-                    else Color.White
+                    else Color.White.copy(alpha = 0.2f)
                 )
             ) {
                 Box(
                     modifier = Modifier
-                        .size(56.dp)
+                        .size(64.dp)
                         .clip(CircleShape)
                         .background(if (isCapturing) Color.Gray else Color.White)
                         .border(
-                            width = 1.dp,
-                            color = if (isCapturing) Color.DarkGray else Color.LightGray,
+                            width = 2.dp,
+                            color = if (isCapturing) Color.DarkGray else MaterialTheme.colorScheme.primary,
                             shape = CircleShape
-                        )
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (isCapturing) MaterialTheme.colorScheme.surfaceVariant
-                            else MaterialTheme.colorScheme.primary
                         )
                 )
             }
@@ -213,7 +255,7 @@ fun CameraContent(
 }
 
 /**
- * 相机内容组件预览
+ * 相机内容组件预览 - 使用模拟数据
  */
 @Preview(showBackground = true)
 @Composable
@@ -225,11 +267,93 @@ fun CameraContentPreview() {
         ) {
             // 使用临时的Executor实例，仅用于预览
             val previewExecutor = remember { Executors.newSingleThreadExecutor() }
-            CameraContent(
-                cameraExecutor = previewExecutor,
-                onImageCaptured = {},
-                onClose = {}
-            )
+            
+            // 模拟相机预览的UI
+            Box(modifier = Modifier.fillMaxSize()) {
+                // 模拟相机预览背景
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.DarkGray)
+                )
+                
+                // 顶部控制栏 - 半透明背景
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .background(Color(0x44000000))
+                        .padding(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // 闪光灯控制
+                        CameraControlButton(
+                            onClick = { },
+                            icon = Icons.Default.FlashOff,
+                            contentDescription = "闪光灯"
+                        )
+                        
+                        // 关闭按钮
+                        CameraControlButton(
+                            onClick = { },
+                            icon = Icons.Default.Clear,
+                            contentDescription = "关闭相机"
+                        )
+                    }
+                }
+                
+                // 右侧控制栏（前后摄像头切换）
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(16.dp)
+                ) {
+                    CameraControlButton(
+                        onClick = { },
+                        icon = Icons.Default.Cameraswitch,
+                        contentDescription = "切换相机"
+                    )
+                }
+                
+                // 底部控制栏包含拍摄按钮
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .background(Color(0x99000000))
+                        .padding(vertical = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Button(
+                        onClick = { },
+                        modifier = Modifier
+                            .size(80.dp)
+                            .border(4.dp, Color.White, CircleShape),
+                        shape = CircleShape,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White.copy(alpha = 0.2f)
+                        )
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(CircleShape)
+                                .background(Color.White)
+                                .border(
+                                    width = 2.dp,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    shape = CircleShape
+                                )
+                        )
+                    }
+                }
+            }
         }
     }
 }
