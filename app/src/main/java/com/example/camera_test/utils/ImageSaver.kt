@@ -22,7 +22,7 @@ object ImageSaver {
      */
     fun saveImageUsingLegacyMethod(context: Context, bitmap: Bitmap): Boolean {
         return try {
-            val imagesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
+            val imagesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
             val appDir = File(imagesDir, "CameraApp")
             
             if (!appDir.exists()) {

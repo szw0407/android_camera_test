@@ -122,28 +122,29 @@ fun ImagePreviewAndSave(
             modifier = Modifier.padding(vertical = 8.dp)
         )
         
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp),
-//            horizontalArrangement = Arrangement.SpaceEvenly
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             SaveMethodButton(
-                text = "传统文件IO",
+                text = "File API",
                 selected = selectedSaveMethod == SaveMethod.LEGACY_STORAGE,
-                onClick = { onSaveMethodSelected(SaveMethod.LEGACY_STORAGE) }
+                onClick = { onSaveMethodSelected(SaveMethod.LEGACY_STORAGE) },
+                modifier = Modifier.fillMaxWidth()
             )
-            
             SaveMethodButton(
                 text = "MediaStore API",
                 selected = selectedSaveMethod == SaveMethod.MEDIA_STORE,
-                onClick = { onSaveMethodSelected(SaveMethod.MEDIA_STORE) }
+                onClick = { onSaveMethodSelected(SaveMethod.MEDIA_STORE) },
+                modifier = Modifier.fillMaxWidth()
             )
-            
             SaveMethodButton(
-                text = "SAF (Document API)",
+                text = "SAF (Storage Access Framework)",
                 selected = selectedSaveMethod == SaveMethod.DOCUMENT_API,
-                onClick = { onSaveMethodSelected(SaveMethod.DOCUMENT_API) }
+                onClick = { onSaveMethodSelected(SaveMethod.DOCUMENT_API) },
+                modifier = Modifier.fillMaxWidth()
             )
         }
         
@@ -259,9 +260,9 @@ fun ImagePreviewAndSave(
                     ) {
                         Text(
                             text = when (method) {
-                                SaveMethod.LEGACY_STORAGE -> "传统文件IO方式"
+                                SaveMethod.LEGACY_STORAGE -> "File API方式"
                                 SaveMethod.MEDIA_STORE -> "MediaStore API方式"
-                                SaveMethod.DOCUMENT_API -> "用户选择保存位置"
+                                SaveMethod.DOCUMENT_API -> "SAF (Storage Access Framework)方式"
                             },
                             style = MaterialTheme.typography.titleMedium,
                             modifier = Modifier.padding(bottom = 8.dp)
@@ -270,11 +271,11 @@ fun ImagePreviewAndSave(
                         Text(
                             text = when (method) {
                                 SaveMethod.LEGACY_STORAGE -> 
-                                    "适用于Android 10以下的系统，通过直接文件IO操作将图片保存到设备存储。此方法在较新的Android系统上需要特殊权限。"
+                                    "File API（Environment.getExternalStoragePublicDirectory + FileOutputStream），Android 1.0（API 1）起提供。适用于Android 10（API 29）以下的系统，通过直接文件IO操作将图片保存到设备存储。此方法在较新的Android系统上需要特殊权限（WRITE_EXTERNAL_STORAGE）。"
                                 SaveMethod.MEDIA_STORE -> 
-                                    "适用于所有Android版本，通过系统的媒体库API保存图片，无需请求存储权限，符合新版Android的隐私要求。"
+                                    "MediaStore API，Android 1.5（API 3）起提供。适用于所有Android版本，通过系统的媒体库API保存图片，无需请求存储权限，符合新版Android的隐私要求。"
                                 SaveMethod.DOCUMENT_API -> 
-                                    "让用户自行选择保存位置，提供最大灵活性，可以保存到第三方存储服务，如云存储。"
+                                    "SAF（Storage Access Framework），Android 4.4（API 19）起提供。让用户自行选择保存位置，提供最大灵活性，可以保存到第三方存储服务，如云存储。"
                             },
                             fontSize = 14.sp,
                             color = MaterialTheme.colorScheme.onSecondaryContainer

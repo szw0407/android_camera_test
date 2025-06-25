@@ -19,11 +19,12 @@ import androidx.compose.ui.tooling.preview.Preview
 fun SaveMethodButton(
     text: String,
     selected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     OutlinedButton(
         onClick = onClick,
-        modifier = Modifier.padding(horizontal = 4.dp),
+        modifier = modifier.padding(horizontal = 4.dp),
         shape = RoundedCornerShape(8.dp),
         border = BorderStroke(
             width = 2.dp,
