@@ -80,7 +80,7 @@ fun CameraMethodSelector(
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
                 Text(
-                    text = "使用CameraX API，提供自定义界面和完全控制",
+                    text = "使用CameraX API，程序通过直接接管摄像头实现相片拍摄，界面和功能可自定义，理论上可实现完全的硬件控制",
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 16.dp)
