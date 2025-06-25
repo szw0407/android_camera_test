@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import android.content.Intent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.camera_test.MainActivity
 import com.example.camera_test.camera.SystemCameraManager
@@ -55,7 +56,10 @@ fun CameraApp(
         
         // 如果是MainActivity，重置触发标志
         val mainActivity = context as? MainActivity
-        mainActivity?.triggerSystemCameraLaunch = false
+        mainActivity?.triggerSystemCameraLaunch?.value = false
+        
+        // 添加日志以跟踪照片捕获
+        android.util.Log.d("CameraApp", "系统相机照片已捕获，大小: ${bitmap.width}x${bitmap.height}")
     }
     
     // 系统相机效果

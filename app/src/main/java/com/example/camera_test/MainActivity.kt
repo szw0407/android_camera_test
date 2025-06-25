@@ -2,11 +2,13 @@ package com.example.camera_test
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import com.example.camera_test.camera.SystemCameraManager
 import com.example.camera_test.ui.CameraApp
@@ -23,14 +25,16 @@ class MainActivity : ComponentActivity() {
     // 相机执行线程
     lateinit var cameraExecutor: ExecutorService
     
-    // 用于系统相机的变量
+    // 用于系统相机的变量 - 使用MutableState以便在值变化时触发重组
     var systemCameraLaunchIntent: Intent? = null
-    var triggerSystemCameraLaunch = false
+    val triggerSystemCameraLaunch = mutableStateOf(false)
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // 初始化相机执行器
         cameraExecutor = Executors.newSingleThreadExecutor()
+        
+        Log.d("MainActivity", "onCreate: 初始化相机应用")
         
         // 设置界面内容
         setContent {
@@ -42,7 +46,7 @@ class MainActivity : ComponentActivity() {
                     CameraApp(
                         cameraExecutor = cameraExecutor,
                         initialBitmap = SystemCameraManager.systemCameraBitmap,
-                        triggerSystemCamera = triggerSystemCameraLaunch
+                        triggerSystemCamera = triggerSystemCameraLaunch.value
                     )
                 }
             }
@@ -53,6 +57,12 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
         // 确保释放相机执行器资源
         cameraExecutor.shutdown()
+    }
+    
+    // 添加Activity结果处理方法，确保系统相机的返回能正确被捕获
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        Log.d("MainActivity", "onActivityResult: 请求码=$requestCode, 结果码=$resultCode")
     }
     
     companion object {

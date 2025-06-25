@@ -55,24 +55,34 @@ object SystemCameraManager {
     ) {
         val context = androidx.compose.ui.platform.LocalContext.current
         
-        // 添加更多参数到LaunchedEffect的key，使其更可靠地响应变化
+        // 直接使用传入的triggerSystemCamera参数，而不是从MainActivity再次获取
         LaunchedEffect(triggerSystemCamera, systemCameraIntent) {
+            android.util.Log.d("SystemCameraEffect", "LaunchedEffect触发: triggerSystemCamera=$triggerSystemCamera")
+            
             try {
                 val mainActivity = context as? MainActivity
-                if (mainActivity?.triggerSystemCameraLaunch == true && mainActivity.systemCameraLaunchIntent != null) {
+                // 使用传入的triggerSystemCamera参数，保持逻辑一致性
+                if (triggerSystemCamera && mainActivity?.systemCameraLaunchIntent != null) {
+                    android.util.Log.d("SystemCameraEffect", "条件满足，准备启动相机")
+                    
                     // 确保相机意图存在且有效
                     if (mainActivity.systemCameraLaunchIntent!!.resolveActivity(context.packageManager) != null) {
+                        android.util.Log.d("SystemCameraEffect", "启动系统相机...")
+                        Toast.makeText(context, "正在打开相机...", Toast.LENGTH_SHORT).show()
                         systemCameraLauncher.launch(mainActivity.systemCameraLaunchIntent!!)
                     } else {
                         Toast.makeText(context, "无法启动相机应用", Toast.LENGTH_SHORT).show()
+                        android.util.Log.e("SystemCameraEffect", "无法启动相机应用")
                     }
+                    
                     // 无论成功与否，重置触发标志
-                    mainActivity.triggerSystemCameraLaunch = false
+                    mainActivity.triggerSystemCameraLaunch.value = false
+                    android.util.Log.d("SystemCameraEffect", "触发标志已重置为false")
                 }
             } catch (e: Exception) {
                 // 捕获可能的异常
                 Toast.makeText(context, "启动相机时出错: ${e.message}", Toast.LENGTH_SHORT).show()
-                e.printStackTrace()
+                android.util.Log.e("SystemCameraEffect", "异常: ${e.message}", e)
             }
         }
     }
@@ -90,13 +100,16 @@ object SystemCameraManager {
                 // 检查设备是否支持相机
                 if (intent.resolveActivity(context.packageManager) != null) {
                     mainActivity.systemCameraLaunchIntent = intent
-                    mainActivity.triggerSystemCameraLaunch = true
+                    // 使用MutableState的value设置，确保触发重组
+                    mainActivity.triggerSystemCameraLaunch.value = true
                     
-                    // 不再重新设置整个内容，只设置触发标志，让LaunchedEffect监听变化
-                    // 这会更安全，不会干扰应用的状态管理
+                    // 打印日志以便调试
+                    android.util.Log.d("SystemCameraManager", "已设置触发标志为true，准备启动系统相机")
+                    Toast.makeText(context, "正在启动系统相机...", Toast.LENGTH_SHORT).show()
                 } else {
                     // 设备不支持相机
                     Toast.makeText(context, "设备不支持相机功能", Toast.LENGTH_SHORT).show()
+                    android.util.Log.e("SystemCameraManager", "设备不支持相机功能")
                 }
             } catch (e: Exception) {
                 // 捕获任何可能的异常
