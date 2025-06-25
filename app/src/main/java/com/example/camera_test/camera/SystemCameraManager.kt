@@ -68,7 +68,6 @@ object SystemCameraManager {
                     // 确保相机意图存在且有效
                     if (mainActivity.systemCameraLaunchIntent!!.resolveActivity(context.packageManager) != null) {
                         android.util.Log.d("SystemCameraEffect", "启动系统相机...")
-                        Toast.makeText(context, "正在打开相机...", Toast.LENGTH_SHORT).show()
                         systemCameraLauncher.launch(mainActivity.systemCameraLaunchIntent!!)
                     } else {
                         Toast.makeText(context, "无法启动相机应用", Toast.LENGTH_SHORT).show()
@@ -103,9 +102,8 @@ object SystemCameraManager {
                     // 使用MutableState的value设置，确保触发重组
                     mainActivity.triggerSystemCameraLaunch.value = true
                     
-                    // 打印日志以便调试
+                    // 保留日志用于开发调试
                     android.util.Log.d("SystemCameraManager", "已设置触发标志为true，准备启动系统相机")
-                    Toast.makeText(context, "正在启动系统相机...", Toast.LENGTH_SHORT).show()
                 } else {
                     // 设备不支持相机
                     Toast.makeText(context, "设备不支持相机功能", Toast.LENGTH_SHORT).show()

@@ -57,9 +57,6 @@ fun CameraApp(
         // 如果是MainActivity，重置触发标志
         val mainActivity = context as? MainActivity
         mainActivity?.triggerSystemCameraLaunch?.value = false
-        
-        // 添加日志以跟踪照片捕获
-        android.util.Log.d("CameraApp", "系统相机照片已捕获，大小: ${bitmap.width}x${bitmap.height}")
     }
     
     // 系统相机效果

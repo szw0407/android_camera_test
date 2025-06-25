@@ -34,8 +34,6 @@ class MainActivity : ComponentActivity() {
         // 初始化相机执行器
         cameraExecutor = Executors.newSingleThreadExecutor()
         
-        Log.d("MainActivity", "onCreate: 初始化相机应用")
-        
         // 设置界面内容
         setContent {
             Camera_testTheme {
@@ -59,10 +57,9 @@ class MainActivity : ComponentActivity() {
         cameraExecutor.shutdown()
     }
     
-    // 添加Activity结果处理方法，确保系统相机的返回能正确被捕获
+    // 处理Activity结果
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        Log.d("MainActivity", "onActivityResult: 请求码=$requestCode, 结果码=$resultCode")
     }
     
     companion object {
